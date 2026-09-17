@@ -1,0 +1,112 @@
+# ============================== PYTHON ==============================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# ====================== ENVIRONMENT & SECRETS ======================
+# Never commit real credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+secrets.json
+credentials.json
+
+# ========================== AIRFLOW ==========================
+airflow.db
+airflow.cfg
+airflow.db-journal
+logs/
+!src/**/logs/
+dags/*.pyc
+standalone_admin_password.txt
+webserver_config.py
+unittests.cfg
+
+# ========================= AWS / S3 =========================
+.aws/
+aws_credentials
+
+# ========================== DATABASES =========================
+*.db
+*.sqlite
+*.sqlite3
+*.postgres
+
+# ======================= PYTEST / COVERAGE =======================
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# ============================ DOCKER ============================
+docker/*.log
+*.log
+
+# ==================== TYPE CHECKERS / LINTERS ====================
+.mypy_cache/
+.ruff_cache/
+.pytype/
+blackd/
+
+# ============================= IDEs =============================
+.vscode/
+!.vscode/launch.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+.spyderproject
+.spyproject
+
+# =========================== JUPYTER ===========================
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ========================= OPERATING SYSTEMS =========================
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+# Linux
+*~
+.nfs*
+
+# ====================== PROJECT DATA ARTIFACTS ======================
+# Local raw/processed data dumps (pipeline outputs, watermarks, etc.)
+data/raw/
+data/processed/
+*.jsonl
+!tests/fixtures/*.jsonl
