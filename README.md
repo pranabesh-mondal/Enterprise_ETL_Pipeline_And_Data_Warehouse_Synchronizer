@@ -293,7 +293,7 @@ docker compose up -d
 
 ## 12. Project Status and Roadmap
 
-- [ ] **Week 1** — API Integration & Data Extraction
+- [x] **Week 1** — API Integration & Data Extraction
 - [ ] **Week 2** — Data Transformation & Validation
 - [ ] **Week 3** — Data Loading & Database Sync
 - [ ] **Week 4** — Orchestration, Monitoring & Deployment
