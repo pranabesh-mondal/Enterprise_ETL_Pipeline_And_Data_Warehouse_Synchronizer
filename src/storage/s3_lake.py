@@ -10,7 +10,8 @@ Layout:
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,13 +24,21 @@ logger = get_logger(__name__)
 MAX_RECORDS_PER_PART = 1000
 
 
+def _run_date(run_id: str) -> str:
+    """Extract a YYYYMMDD partition value from a run id."""
+    match = re.match(r"(\d{4})-?(\d{2})-?(\d{2})", run_id)
+    if match:
+        return "".join(match.groups())
+    return datetime.now(UTC).strftime("%Y%m%d")
+
+
 def build_key(
     source: str, resource: str, run_id: str, part: int = 0
 ) -> str:
     """Deterministic S3 key for a landing part (unit-testable, no AWS calls)."""
-    run_date = run_id[:10].replace("-", "") if "-" in run_id else run_id[:8]
     return (
-        f"raw/{source}/{resource}/run_date={run_date}/{run_id}/part-{part:05d}.json"
+        f"raw/{source}/{resource}/run_date={_run_date(run_id)}/{run_id}"
+        f"/part-{part:05d}.json"
     )
 
 
@@ -106,4 +115,4 @@ class LocalDataLake:
 
 
 def new_run_id() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
+    return datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")

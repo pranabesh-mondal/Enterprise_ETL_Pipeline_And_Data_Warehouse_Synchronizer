@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Any, Iterator
+from collections.abc import Iterator
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
+from typing import Any
 
 import requests
 from tenacity import (
@@ -35,15 +37,39 @@ class TransientAPIError(Exception):
         self.retry_after = retry_after
 
 
+DEFAULT_MAX_ATTEMPTS = 5
+MAX_RETRY_AFTER_SECONDS = 60.0
+
+
+def _parse_retry_after(value: str | None) -> float | None:
+    """Parse a `Retry-After` header as either delay-seconds or an HTTP-date."""
+    if not value:
+        return None
+    try:
+        return max(0.0, float(value))
+    except ValueError:
+        pass
+    try:
+        target = parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if target is None:
+        return None
+    if target.tzinfo is None:
+        target = target.replace(tzinfo=UTC)
+    return max(0.0, (target - datetime.now(UTC)).total_seconds())
+
+
 def _wait_with_retry_after(retry_state: Any) -> float:
-    """Tenacity wait strategy: honor Retry-After if present, else exponential jitter."""
+    """Tenacity wait strategy: honor Retry-After if present, else exponential jitter.
+
+    Waits from `Retry-After` are capped so a hostile/large value cannot stall
+    the pipeline indefinitely.
+    """
     exc = retry_state.outcome.exception() if retry_state.outcome else None
-    retry_after = getattr(exc, "retry_after", None)
-    if retry_after is not None:
-        try:
-            return max(0.0, float(retry_after))
-        except ValueError:
-            pass
+    hinted = _parse_retry_after(getattr(exc, "retry_after", None))
+    if hinted is not None:
+        return min(hinted, MAX_RETRY_AFTER_SECONDS)
     return wait_exponential_jitter(initial=1, max=30)(retry_state)
 
 
@@ -51,7 +77,7 @@ class RateLimitedSession:
     """A `requests.Session` wrapper with automatic retry on transient failures."""
 
     RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
-    MAX_ATTEMPTS = 5
+    MAX_ATTEMPTS = DEFAULT_MAX_ATTEMPTS
 
     def __init__(
         self,
@@ -72,7 +98,7 @@ class RateLimitedSession:
     @retry(
         retry=retry_if_exception_type(TransientAPIError),
         wait=_wait_with_retry_after,
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(DEFAULT_MAX_ATTEMPTS),
         before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )

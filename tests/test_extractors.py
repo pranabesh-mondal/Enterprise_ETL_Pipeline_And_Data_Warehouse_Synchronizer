@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import responses
 
@@ -12,7 +12,7 @@ from src.models.base import Source
 
 STRIPE_URL = "https://api.stripe.com/v1/customers"
 SF_INSTANCE = "https://test.my.salesforce.com"
-SF_TOKEN_URL = f"https://login.salesforce.com/services/oauth2/token"
+SF_TOKEN_URL = "https://login.salesforce.com/services/oauth2/token"
 
 
 @responses.activate
@@ -98,6 +98,6 @@ def test_salesforce_incremental_adds_modified_filter():
         json={"records": [], "done": True},
     )
     extractor = SalesforceExtractor("u@x.com", "pw", "token")
-    list(extractor.iter_raw("accounts", since=datetime(2026, 9, 1, tzinfo=timezone.utc)))
+    list(extractor.iter_raw("accounts", since=datetime(2026, 9, 1, tzinfo=UTC)))
 
     assert "LastModifiedDate" in responses.calls[1].request.url

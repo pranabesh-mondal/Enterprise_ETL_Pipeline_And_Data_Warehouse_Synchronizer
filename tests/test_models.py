@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 import pytest
 from pydantic import ValidationError
 
 from src.models.base import Source, validate_batch
 from src.models.salesforce import SalesforceAccount, SalesforceOpportunity
 from src.models.stripe import StripeCharge, StripeCustomer
-
 
 # --------------------------- Stripe models ---------------------------
 

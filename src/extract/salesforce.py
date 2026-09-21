@@ -7,14 +7,15 @@ until `done` is true. Incremental pulls append a LastModifiedDate filter.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from datetime import datetime
-from typing import Any, Iterator
+from typing import Any
 
+from src.models.base import BaseSchema, Source
 from src.models.salesforce import (
     SALESFORCE_RESOURCE_MODELS,
     SALESFORCE_RESOURCE_QUERIES,
 )
-from src.models.base import BaseSchema, Source
 from src.utils.logging_config import get_logger
 
 from .base import BaseExtractor, RateLimitedSession

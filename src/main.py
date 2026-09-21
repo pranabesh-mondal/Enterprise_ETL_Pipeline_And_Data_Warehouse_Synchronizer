@@ -10,7 +10,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime
 
 from src.config.settings import get_settings
 from src.extract.base import BaseExtractor
@@ -58,7 +58,11 @@ def build_extractors(settings, sources: list[str]) -> list[BaseExtractor]:
                 logger.warning("Stripe credentials missing - skipping.")
                 continue
             extractors.append(
-                StripeExtractor(settings.stripe_api_key, settings.stripe_api_base)
+                StripeExtractor(
+                    settings.stripe_api_key,
+                    settings.stripe_api_base,
+                    page_size=settings.extraction_page_size,
+                )
             )
         elif source == "salesforce":
             if not settings.salesforce_configured:
@@ -82,10 +86,34 @@ def run_extraction(
     resources: list[str] | None = None,
     since: datetime | None = None,
 ) -> dict[str, dict[str, int]]:
-    """Extract every requested resource and land valid records in the lake."""
+    """Extract every requested resource and land valid records in the lake.
+
+    Failures are isolated per resource: a broken endpoint is logged and
+    skipped so the remaining resources (and sources) still complete.
+    """
     summary: dict[str, dict[str, int]] = {}
     for resource in resources or sorted(extractor.resource_models):
-        result = extractor.extract(resource, since=since)
+        if resource not in extractor.resource_models:
+            logger.warning(
+                "Resource '%s' is not supported by source '%s' - skipping. Known: %s",
+                resource,
+                extractor.source.value,
+                sorted(extractor.resource_models),
+            )
+            continue
+
+        try:
+            result = extractor.extract(resource, since=since)
+        except Exception as exc:  # noqa: BLE001 - deliberate per-resource isolation
+            logger.exception(
+                "Extraction FAILED for %s/%s: %s",
+                extractor.source.value,
+                resource,
+                exc,
+            )
+            summary[resource] = {"fetched": 0, "valid": 0, "errors": 0, "failed": 1}
+            continue
+
         if result.valid_records:
             lake.write_batch(
                 result.valid_records,
@@ -104,6 +132,7 @@ def run_extraction(
             "fetched": result.total_fetched,
             "valid": result.valid_count,
             "errors": result.error_count,
+            "failed": 0,
         }
     return summary
 

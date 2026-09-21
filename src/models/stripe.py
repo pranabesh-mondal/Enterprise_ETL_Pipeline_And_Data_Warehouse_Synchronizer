@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import Field, field_validator
 
 from .base import BaseSchema
 
@@ -13,7 +13,7 @@ from .base import BaseSchema
 def epoch_to_datetime(value: Any) -> Any:
     """Stripe returns epoch seconds for timestamps - normalize to UTC datetime."""
     if isinstance(value, (int, float)):
-        return datetime.fromtimestamp(value, tz=timezone.utc)
+        return datetime.fromtimestamp(value, tz=UTC)
     return value
 
 

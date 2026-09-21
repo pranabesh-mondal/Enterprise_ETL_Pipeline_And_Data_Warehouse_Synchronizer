@@ -7,18 +7,18 @@ model inherits `BaseSchema`; extraction results are wrapped in
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
-class Source(str, Enum):
+class Source(StrEnum):
     STRIPE = "stripe"
     SALESFORCE = "salesforce"
 
@@ -98,12 +98,13 @@ def validate_batch(
             )
             valid_records.append(envelope.model_dump(mode="json"))
         except ValidationError as exc:
+            payload = item if isinstance(item, dict) else {"_raw": repr(item)}
             errors.append(
                 ValidationErrorRecord(
                     source=source,
                     resource=resource,
                     index=index,
-                    payload=item,
+                    payload=payload,
                     errors=exc.errors(include_url=False),
                 ).model_dump(mode="json")
             )

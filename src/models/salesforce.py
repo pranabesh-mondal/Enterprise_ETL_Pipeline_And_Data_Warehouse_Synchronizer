@@ -3,16 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
 
-from pydantic import AliasChoices, Field, field_validator
+from pydantic import AliasChoices, Field
 
 from .base import BaseSchema
-
-
-def parse_iso_datetime(value: Any) -> Any:
-    """Salesforce returns ISO-8601 strings - let Pydantic parse them."""
-    return value
 
 
 class SalesforceBase(BaseSchema):
@@ -52,8 +46,13 @@ class SalesforceOpportunity(SalesforceBase):
 
 # resource name -> (validating model, SOQL query)
 SALESFORCE_RESOURCE_QUERIES: dict[str, str] = {
-    "accounts": "SELECT Id, Name, Industry, Website, CreatedDate, LastModifiedDate FROM Account",
-    "opportunities": "SELECT Id, Name, Amount, StageName, CloseDate, CreatedDate, LastModifiedDate FROM Opportunity",
+    "accounts": (
+        "SELECT Id, Name, Industry, Website, CreatedDate, LastModifiedDate FROM Account"
+    ),
+    "opportunities": (
+        "SELECT Id, Name, Amount, StageName, CloseDate, CreatedDate, LastModifiedDate "
+        "FROM Opportunity"
+    ),
 }
 
 SALESFORCE_RESOURCE_MODELS: dict[str, type[BaseSchema]] = {
