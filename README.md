@@ -167,31 +167,43 @@ The system handles **rate limiting, pagination, incremental loads, and robust er
 
 ---
 
-## 6. Planned Repository Structure
-
 ```
 .
-├── dags/                          # Airflow DAGs (daily ETL scheduling)
-│   └── etl_daily_sync_dag.py
+├── dags/                            # Airflow DAGs (Week 4)
 ├── src/
-│   ├── config/                    # Pydantic Settings & environment management
-│   ├── models/                    # Pydantic schemas + unified data models
-│   ├── extract/                   # API connectors (salesforce.py, stripe.py, zendesk.py)
-│   ├── transform/                 # Polars/Pandas cleaning & schema mapping
-│   ├── load/                      # SQLAlchemy engine, upsert writers
-│   ├── alerting/                  # Slack / Email failure notifications
-│   └── utils/                     # Logging, S3 helpers, rate limiter, watermarks
-├── tests/                         # Pytest unit & integration tests
-├── sql/                           # Warehouse DDL (tables, keys, indexes)
-├── .github/workflows/             # CI/CD (lint, test, build, deploy)
-├── docker/                        # Dockerfiles (app, airflow)
-├── docker-compose.yml             # Local orchestration stack
-├── .env.example                   # Template for required environment variables
-├── requirements.txt
+│   ├── config/
+│   │   └── settings.py              # [x] Pydantic Settings & env management
+│   ├── models/
+│   │   ├── base.py                  # [x] Base schemas, Source enum, validate_batch
+│   │   ├── stripe.py                # [x] Stripe API models
+│   │   ├── salesforce.py            # [x] Salesforce API models + SOQL queries
+│   │   └── unified.py               # [x] Canonical warehouse schema (Week 2)
+│   ├── extract/
+│   │   ├── base.py                  # [x] RateLimitedSession (retry/backoff) + BaseExtractor
+│   │   ├── stripe.py                # [x] Stripe extractor (cursor pagination)
+│   │   └── salesforce.py            # [x] Salesforce extractor (OAuth2 + nextRecordsUrl)
+│   ├── transform/
+│   │   ├── clean.py                 # [x] Null/date/currency/amount standardization
+│   │   ├── clean_frames.py          # [x] Polars + Pandas frame cleaning & dedupe
+│   │   ├── mappings.py              # [x] Declarative source -> unified field maps
+│   │   ├── pipeline.py              # [x] Map + validate + dedupe (engine selectable)
+│   │   └── runner.py                # [x] Raw part -> processed zone (JSON/Parquet)
+│   ├── storage/
+│   │   └── s3_lake.py               # [x] S3 raw landing (+ local dev fallback)
+│   ├── load/                        # [ ] SQLAlchemy warehouse writers (Week 3)
+│   ├── alerting/                    # [ ] Slack / Email failure alerts (Week 4)
+│   ├── utils/
+│   │   └── logging_config.py        # [x] Structured logging
+│   └── main.py                      # [x] CLI: extract / transform / all stages
+|
+├── sql/                             # [ ] Warehouse DDL (Week 3)
+├── .github/workflows/               # [ ] CI/CD (Week 4)
+├── docker/                          # [ ] Dockerfiles (Week 4)
+├── pyproject.toml                   # [x] pytest / ruff / black / mypy config
+├── requirements.txt                 # [x] Dependencies
+├── .env.example                     # [x] Environment template
 └── README.md
 ```
-
-*(This structure will be finalized as the codebase grows week by week.)*
 
 ---
 
