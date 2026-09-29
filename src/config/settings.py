@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     # ---- Pipeline ----
     log_level: str = "INFO"
     extraction_page_size: int = 100
+    database_url: str = "sqlite:///data/warehouse.db"
 
     @property
     def stripe_configured(self) -> bool:

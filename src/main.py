@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Enterprise ETL pipeline run")
     parser.add_argument(
         "--stage",
-        choices=["extract", "transform", "all"],
+        choices=["extract", "transform", "load", "all"],
         default="extract",
         help="Pipeline stage to run (default: extract)",
     )
@@ -72,6 +72,11 @@ def parse_args() -> argparse.Namespace:
         choices=["polars", "pandas"],
         default="polars",
         help="DataFrame engine used for the transform stage",
+    )
+    parser.add_argument(
+        "--database-url",
+        default=None,
+        help="Warehouse DSN (default: DATABASE_URL env or sqlite dev db)",
     )
     return parser.parse_args()
 
@@ -205,6 +210,18 @@ def run_transform_stage(args: argparse.Namespace) -> None:
         logger.info("%s: %s", resource, stats)
 
 
+def run_load_stage(args: argparse.Namespace, settings, run_id: str) -> None:
+    """Upsert processed parts into the warehouse + update watermarks."""
+    from src.load.runner import run_load
+
+    database_url = args.database_url or settings.database_url
+    logger.info("--- Load stage (warehouse=%s) ---", database_url.split("@")[-1])
+    summary = run_load(
+        out_root=args.out_root, database_url=database_url, run_id=run_id)
+    for resource, stats in summary.items():
+        logger.info("%s: %s", resource, stats)
+
+
 def main() -> None:
     args = parse_args()
     settings = get_settings()
@@ -216,6 +233,8 @@ def main() -> None:
         run_extract_stage(args, settings, run_id)
     if args.stage in ("transform", "all"):
         run_transform_stage(args)
+    if args.stage in ("load", "all"):
+        run_load_stage(args, settings, run_id)
 
     logger.info("=== ETL run complete (stage=%s) ===", args.stage)
 
