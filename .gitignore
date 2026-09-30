@@ -20,14 +20,13 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual environments
+# ============================== Virtual environments ==============================
 .venv/
 venv/
 env/
 ENV/
 
 # ====================== ENVIRONMENT & SECRETS ======================
-# Never commit real credentials
 .env
 .env.*
 !.env.example
@@ -105,7 +104,6 @@ $RECYCLE.BIN/
 .nfs*
 
 # ====================== PROJECT DATA ARTIFACTS ======================
-# Local raw/processed data dumps (pipeline outputs, watermarks, etc.)
 data/raw/
 data/processed/
 *.jsonl

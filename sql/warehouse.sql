@@ -1,13 +1,9 @@
--- Enterprise ETL warehouse DDL - Week 3, Day 1-3.
--- Target: PostgreSQL (primary). SQLite-compatible subset noted inline.
--- Snowflake: same columns; use VARIANT for `attributes` (see below).
-
 CREATE TABLE IF NOT EXISTS unified_records (
-    unified_id      VARCHAR(256)  PRIMARY KEY,  -- source:entity_type:source_id
-    source          VARCHAR(64)   NOT NULL,     -- stripe | salesforce
-    source_resource VARCHAR(64)   NOT NULL,     -- customers | charges | ...
-    source_id       VARCHAR(256)  NOT NULL,     -- natural key in source system
-    entity_type     VARCHAR(64)   NOT NULL,     -- customer | transaction | ...
+    unified_id      VARCHAR(256)  PRIMARY KEY,
+    source          VARCHAR(64)   NOT NULL,
+    source_resource VARCHAR(64)   NOT NULL,
+    source_id       VARCHAR(256)  NOT NULL,
+    entity_type     VARCHAR(64)   NOT NULL,
     name            VARCHAR(512),
     email           VARCHAR(320),
     currency        CHAR(3),
@@ -17,7 +13,7 @@ CREATE TABLE IF NOT EXISTS unified_records (
     created_at      TIMESTAMPTZ   NOT NULL,
     updated_at      TIMESTAMPTZ,
     ingested_at     TIMESTAMPTZ   NOT NULL,
-    attributes      JSONB                       -- Snowflake: VARIANT
+    attributes      JSONB
 );
 
 CREATE INDEX IF NOT EXISTS ix_unified_source_resource

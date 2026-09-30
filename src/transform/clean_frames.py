@@ -1,10 +1,3 @@
-"""DataFrame-level cleaning for both engines - Week 2, Day 1-3.
-
-`clean_frame` and `deduplicate_frame` are the Polars (primary) path;
-`clean_frame_pandas` and `deduplicate_frame_pandas` are the Pandas
-fallback. Both apply the same rules from `src.transform.clean`.
-"""
-
 from __future__ import annotations
 
 from typing import Any

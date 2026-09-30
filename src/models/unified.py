@@ -1,9 +1,3 @@
-"""Unified (canonical) warehouse schema - Week 2, Day 4-6.
-
-Stripe and Salesforce records are mapped into these models so downstream
-consumers receive one consistent shape regardless of the origin system.
-"""
-
 from __future__ import annotations
 
 from datetime import datetime

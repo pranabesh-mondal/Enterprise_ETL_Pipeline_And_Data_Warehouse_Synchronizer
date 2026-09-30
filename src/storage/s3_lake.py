@@ -1,12 +1,3 @@
-"""Raw data lake writers (Day 6-7, Week 1).
-
-Raw extracted JSON lands immutably in S3 (or a local folder for dev),
-partitioned by source / resource / run so it is auditable and replayable.
-
-Layout:
-    raw/{source}/{resource}/run_date={YYYYMMDD}/{run_id}/part-{n:05d}.json
-"""
-
 from __future__ import annotations
 
 import json

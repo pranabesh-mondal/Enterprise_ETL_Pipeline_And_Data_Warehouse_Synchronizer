@@ -1,10 +1,3 @@
-"""Extraction base layer: rate-limit-aware HTTP session + extractor ABC.
-
-Day 6-7 (Week 1): rate-limit handling via Tenacity - exponential backoff
-with jitter, honoring `Retry-After` headers, retrying only transient
-failures (429 / 5xx / network errors).
-"""
-
 from __future__ import annotations
 
 import logging
@@ -16,8 +9,8 @@ from typing import Any
 
 import requests
 from tenacity import (
+    Retrying,
     before_sleep_log,
-    retry,
     retry_if_exception_type,
     stop_after_attempt,
     wait_exponential_jitter,
@@ -30,7 +23,6 @@ logger = get_logger(__name__)
 
 
 class TransientAPIError(Exception):
-    """Raised for retryable HTTP statuses (429 / 5xx) and network errors."""
 
     def __init__(self, message: str, retry_after: str | None = None) -> None:
         super().__init__(message)
@@ -42,7 +34,6 @@ MAX_RETRY_AFTER_SECONDS = 60.0
 
 
 def _parse_retry_after(value: str | None) -> float | None:
-    """Parse a `Retry-After` header as either delay-seconds or an HTTP-date."""
     if not value:
         return None
     try:
@@ -61,11 +52,7 @@ def _parse_retry_after(value: str | None) -> float | None:
 
 
 def _wait_with_retry_after(retry_state: Any) -> float:
-    """Tenacity wait strategy: honor Retry-After if present, else exponential jitter.
 
-    Waits from `Retry-After` are capped so a hostile/large value cannot stall
-    the pipeline indefinitely.
-    """
     exc = retry_state.outcome.exception() if retry_state.outcome else None
     hinted = _parse_retry_after(getattr(exc, "retry_after", None))
     if hinted is not None:
@@ -74,20 +61,20 @@ def _wait_with_retry_after(retry_state: Any) -> float:
 
 
 class RateLimitedSession:
-    """A `requests.Session` wrapper with automatic retry on transient failures."""
 
     RETRYABLE_STATUSES = {429, 500, 502, 503, 504}
-    MAX_ATTEMPTS = DEFAULT_MAX_ATTEMPTS
 
     def __init__(
         self,
         headers: dict[str, str] | None = None,
         timeout: int = 30,
+        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     ) -> None:
         self._session = requests.Session()
         if headers:
             self._session.headers.update(headers)
         self.timeout = timeout
+        self.max_attempts = max_attempts
 
     def get(self, url: str, **kwargs: Any) -> requests.Response:
         return self.request("GET", url, **kwargs)
@@ -95,15 +82,21 @@ class RateLimitedSession:
     def post(self, url: str, **kwargs: Any) -> requests.Response:
         return self.request("POST", url, **kwargs)
 
-    @retry(
-        retry=retry_if_exception_type(TransientAPIError),
-        wait=_wait_with_retry_after,
-        stop=stop_after_attempt(DEFAULT_MAX_ATTEMPTS),
-        before_sleep=before_sleep_log(logger, logging.WARNING),
-        reraise=True,
-    )
     def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
         kwargs.setdefault("timeout", self.timeout)
+        retrying = Retrying(
+            retry=retry_if_exception_type(TransientAPIError),
+            wait=_wait_with_retry_after,
+            stop=stop_after_attempt(self.max_attempts),
+            before_sleep=before_sleep_log(logger, logging.WARNING),
+            reraise=True,
+        )
+        for attempt in retrying:
+            with attempt:
+                return self._do_request(method, url, **kwargs)
+        raise RuntimeError("unreachable: tenacity retry loop exited")
+
+    def _do_request(self, method: str, url: str, **kwargs: Any) -> requests.Response:
         try:
             response = self._session.request(method, url, **kwargs)
         except requests.RequestException as exc:
@@ -126,7 +119,6 @@ class RateLimitedSession:
 
 
 class BaseExtractor(ABC):
-    """Contract for all API extractors (Day 3-5, Week 1)."""
 
     source: Source
     resource_models: dict[str, type[BaseSchema]]

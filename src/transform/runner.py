@@ -1,10 +1,3 @@
-"""Transform stage runner - Week 2, Day 4-6.
-
-Reads raw JSON parts produced by the Week 1 extraction stage and writes
-unified records to the processed zone, partitioned by entity type:
-    {out_root}/{entity_type}/source={source}/resource={resource}/part-00000.{json,parquet}
-"""
-
 from __future__ import annotations
 
 import json
@@ -87,7 +80,6 @@ def write_unified(
         parquet_path = target / "part-00000.parquet"
         frame = pl.DataFrame(result.records)
         if "attributes" in frame.columns:
-            # Struct columns vary per record; serialize to JSON for a stable schema.
             frame = frame.with_columns(
                 pl.col("attributes")
                 .map_elements(json.dumps, return_dtype=pl.Utf8)
@@ -110,15 +102,23 @@ def run_transform(
     engine: str = "polars",
     sources: list[str] | None = None,
 ) -> dict[str, dict[str, int]]:
-    """Transform every discovered raw part and write the processed zone."""
+    """Transform every discovered raw part and write the processed zone.
+
+    Raw parts for the same (source, resource) are accumulated first and
+    transformed/written once, so multi-part extractions never overwrite
+    each other and cross-part duplicates are removed.
+    """
     selected = {Source(value) for value in sources} if sources else None
     summary: dict[str, dict[str, int]] = {}
+    batched: dict[str, tuple[Source, str, list[Any]]] = {}
 
-    for source, resource, path in find_raw_parts(raw_root, source=None):
-        if selected and source not in selected:
-            continue
-        key = f"{source.value}/{resource}"
-        records = load_raw_records(path)
+    for selected_source in sorted(selected) if selected else [None]:
+        for source, resource, path in find_raw_parts(raw_root, source=selected_source):
+            key = f"{source.value}/{resource}"
+            entry = batched.setdefault(key, (source, resource, []))
+            entry[2].extend(load_raw_records(path))
+
+    for key, (source, resource, records) in batched.items():
         result = transform_records(records, source, resource, engine=engine)
         write_unified(result, out_root)
         current = summary.setdefault(

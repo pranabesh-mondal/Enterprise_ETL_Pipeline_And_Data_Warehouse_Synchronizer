@@ -1,14 +1,7 @@
-"""Salesforce extractor with cursor-based pagination (Day 3-5, Week 1).
-
-Auth: OAuth2 username-password flow. Pagination: Salesforce returns
-`nextRecordsUrl` when a SOQL query exceeds the batch size; we follow it
-until `done` is true. Incremental pulls append a LastModifiedDate filter.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from src.models.base import BaseSchema, Source
@@ -71,7 +64,11 @@ class SalesforceExtractor(BaseExtractor):
         self.authenticate()
         soql = SALESFORCE_RESOURCE_QUERIES[resource]
         if since is not None:
-            soql += f" WHERE LastModifiedDate > {since.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            if since.tzinfo is None:
+                since = since.replace(tzinfo=UTC)
+            predicate = f"LastModifiedDate > {since.strftime('%Y-%m-%dT%H:%M:%SZ')}"
+            keyword = " AND " if " WHERE " in soql.upper() else " WHERE "
+            soql += f"{keyword}{predicate}"
             logger.info(
                 "Salesforce incremental pull: %s modified after %s", resource, since
             )
@@ -92,8 +89,7 @@ class SalesforceExtractor(BaseExtractor):
             if body.get("done", True):
                 url = None
             else:
-                # Cursor: Salesforce-provided locator for the next batch.
                 url = f"{self._instance_url}{body['nextRecordsUrl']}"
-                params = None  # locator requests must not repeat the q param
+                params = None
 
         logger.info("Salesforce '%s': fetched %d records", resource, total)

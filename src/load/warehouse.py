@@ -1,8 +1,7 @@
-"""Warehouse engine factory + idempotent upsert writer - Week 3."""
-
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -18,6 +17,12 @@ logger = get_logger(__name__)
 
 UPSERT_COLUMNS = [c.name for c in unified_records.columns if c.name != "unified_id"]
 REQUIRED_COLUMNS = ("unified_id", "source", "source_resource", "source_id")
+UPSERT_BATCH_SIZE = 100
+
+
+def _chunks(rows: list[dict[str, Any]], size: int) -> Iterator[list[dict[str, Any]]]:
+    for start in range(0, len(rows), size):
+        yield rows[start:start + size]
 
 
 def get_engine(database_url: str, **kwargs: Any) -> Engine:
@@ -131,12 +136,13 @@ class WarehouseLoader:
             insert_fn = sqlite_insert
         existing = self._existing_ids(rows)
         with self.engine.begin() as conn:
-            stmt = insert_fn(unified_records).values(rows)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["unified_id"],
-                set_={col: stmt.excluded[col] for col in UPSERT_COLUMNS},
-            )
-            conn.execute(stmt)
+            for batch in _chunks(rows, UPSERT_BATCH_SIZE):
+                stmt = insert_fn(unified_records).values(batch)
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=["unified_id"],
+                    set_={col: stmt.excluded[col] for col in UPSERT_COLUMNS},
+                )
+                conn.execute(stmt)
         stats["updated"] = len([r for r in rows if r["unified_id"] in existing])
         stats["inserted"] = len(rows) - stats["updated"]
         logger.info("Upserted %d (%d new, %d upd) via %s ON CONFLICT",
@@ -227,11 +233,3 @@ class WarehouseLoader:
             value = conn.execute(
                 sa_select(func.count()).select_from(unified_records)).scalar()
             return int(value or 0)
-
-            result = conn.execute(
-                sa_select(unified_records.c.unified_id).where(
-                    unified_records.c.unified_id.in_([r["unified_id"] for r in rows])
-                )
-            )
-            return {row[0] for row in result}
-

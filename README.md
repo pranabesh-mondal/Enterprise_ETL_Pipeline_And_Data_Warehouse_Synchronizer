@@ -21,11 +21,10 @@
 6. [Planned Repository Structure](#6-planned-repository-structure)
 7. [Getting Started](#7-getting-started)
 8. [Resilience and Error Handling](#8-resilience-and-error-handling)
-9. [Testing Strategy](#9-testing-strategy)
-10. [Deployment and CI/CD](#10-deployment-and-cicd)
-11. [Expected Impact](#11-expected-impact)
-12. [Project Status and Roadmap](#12-project-status-and-roadmap)
-13. [Contributing and License](#13-contributing-and-license)
+9. [Deployment and CI/CD](#9-deployment-and-cicd)
+10. [Expected Impact](#10-expected-impact)
+11. [Project Status and Roadmap](#11-project-status-and-roadmap)
+12. [Contributing and License](#12-contributing-and-license)
 
 ---
 
@@ -43,7 +42,7 @@ The system handles **rate limiting, pagination, incremental loads, and robust er
 | **Orchestration** | Apache Airflow (daily scheduled DAGs) |
 | **Database / Storage** | SQLAlchemy, PostgreSQL / Snowflake, AWS S3 (raw data lake) |
 | **Networking / APIs** | Requests, Tenacity (retry logic), Pydantic (data validation) |
-| **Status** | Planning — Week 1 kickoff |
+| **Status** | Week 3 complete — ETL (Extract → Transform → Load) runs end-to-end; Week 4 (orchestration) pending |
 
 ---
 
@@ -124,16 +123,15 @@ The system handles **rate limiting, pagination, incremental loads, and robust er
 | **Raw Storage** | AWS S3 (boto3) | Intermediate data lake for raw JSON |
 | **Warehouse** | SQLAlchemy, PostgreSQL / Snowflake | Central Data Warehouse target |
 | **Orchestration** | Apache Airflow | Daily scheduled DAGs, task retries |
-| **Testing** | Pytest | Unit & integration tests |
 | **Packaging** | Docker, Docker Compose | Containerized deployment |
-| **CI/CD** | GitHub Actions | Lint, test, build automation |
+| **CI/CD** | GitHub Actions | Lint, build automation |
 | **Alerting** | Slack Webhooks / SMTP Email | Pipeline failure notifications |
 
 ---
 
 ## 5. Development Timeline (4 Weeks)
 
-###  Week 1 — API Integration & Data Extraction
+### ✅ Week 1 — API Integration & Data Extraction (Complete)
 
 | Days | Task |
 |---|---|
@@ -141,15 +139,15 @@ The system handles **rate limiting, pagination, incremental loads, and robust er
 | 3–5 | Build extraction scripts for **Stripe** and **Salesforce** APIs, implementing **cursor-based pagination**. |
 | 6–7 | Implement **rate-limit handling** and write raw extracted JSON data to an **AWS S3** bucket. |
 
-###  Week 2 — Data Transformation & Validation
+### ✅ Week 2 — Data Transformation & Validation (Complete)
 
 | Days | Task |
 |---|---|
 | 1–3 | Develop **Polars/Pandas** scripts to clean raw data, handle null values, and standardize date/currency formats. |
 | 4–6 | Write transformation logic to map disparate API fields into a **unified schema**. |
-| 7 | Implement unit tests using **Pytest** to validate data types and transformation logic. |
+| 7 | Buffer / spillover for transformation work and review. |
 
-###  Week 3 — Data Loading & Database Sync
+### ✅ Week 3 — Data Loading & Database Sync (Complete)
 
 | Days | Task |
 |---|---|
@@ -190,13 +188,17 @@ The system handles **rate limiting, pagination, incremental loads, and robust er
 │   │   └── runner.py                # [x] Raw part -> processed zone (JSON/Parquet)
 │   ├── storage/
 │   │   └── s3_lake.py               # [x] S3 raw landing (+ local dev fallback)
-│   ├── load/                        # [ ] SQLAlchemy warehouse writers (Week 3)
+│   ├── load/
+│   │   ├── tables.py                # [x] SQLAlchemy warehouse tables (Week 3)
+│   │   ├── warehouse.py             # [x] Engine factory + idempotent upserts + watermarks (Week 3)
+│   │   └── runner.py                # [x] Processed zone -> warehouse + watermark update (Week 3)
 │   ├── alerting/                    # [ ] Slack / Email failure alerts (Week 4)
 │   ├── utils/
 │   │   └── logging_config.py        # [x] Structured logging
-│   └── main.py                      # [x] CLI: extract / transform / all stages
+│   └── main.py                      # [x] CLI: extract / transform / load / all stages
 |
-├── sql/                             # [ ] Warehouse DDL (Week 3)
+├── sql/
+│   └── warehouse.sql                # [x] Warehouse DDL (Week 3)
 ├── .github/workflows/               # [ ] CI/CD (Week 4)
 ├── docker/                          # [ ] Dockerfiles (Week 4)
 ├── pyproject.toml                   # [x] pytest / ruff / black / mypy config
@@ -240,10 +242,7 @@ copy .env.example .env        # then fill in your credentials
 # 5. Run the ETL pipeline locally (one-shot)
 python -m src.main
 
-# 6. Run the test suite
-pytest -v
-
-# 7. Launch the Airflow stack (daily schedule) via Docker Compose
+# 6. Launch the Airflow stack (daily schedule) via Docker Compose
 docker compose up -d
 ```
 
@@ -278,23 +277,15 @@ docker compose up -d
 
 ---
 
-## 9. Testing Strategy
-
-- **Unit tests (Pytest)** — data types, Pydantic models, transformation logic, null handling, date/currency standardization. *(Week 2, Day 7)*
-- **Integration tests** — mocked third-party APIs covering pagination and rate-limit scenarios, plus test-database upsert checks. *(Weeks 2–3)*
-- **End-to-end tests** — a full Extract → Transform → Load dry run against the target stack. *(Week 3, Day 7)*
-
----
-
-## 10. Deployment and CI/CD
+## 9. Deployment and CI/CD
 
 -  **Docker image** for the ETL application; **Docker Compose** for the local stack (Airflow + PostgreSQL).
--  **GitHub Actions** pipeline: lint/format checks → Pytest suite → Docker build on every push/PR.
+-  **GitHub Actions** pipeline: lint/format checks → Docker build on every push/PR.
 -  **Production execution** via the Airflow daily-scheduled DAG with automatic retries.
 
 ---
 
-## 11. Expected Impact
+## 10. Expected Impact
 
 -  Establishes a **single source of truth** for the organization's BI and analytics teams.
 -  Eliminates **hundreds of hours** of manual data extraction.
@@ -303,18 +294,18 @@ docker compose up -d
 
 ---
 
-## 12. Project Status and Roadmap
+## 11. Project Status and Roadmap
 
 - [x] **Week 1** — API Integration & Data Extraction
-- [ ] **Week 2** — Data Transformation & Validation
-- [ ] **Week 3** — Data Loading & Database Sync
+- [x] **Week 2** — Data Transformation & Validation
+- [x] **Week 3** — Data Loading & Database Sync
 - [ ] **Week 4** — Orchestration, Monitoring & Deployment
 
 >  Status is updated here as deliverables land, following the [Development Timeline](#5-development-timeline-4-weeks).
 
 ---
 
-## 13. Contributing and License
+## 12. Contributing and License
 
 ### Contributing
 

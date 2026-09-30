@@ -1,5 +1,3 @@
-"""Pydantic models for Salesforce REST API resources (Day 1-2, Week 1)."""
-
 from __future__ import annotations
 
 from datetime import datetime
@@ -44,7 +42,6 @@ class SalesforceOpportunity(SalesforceBase):
     )
 
 
-# resource name -> (validating model, SOQL query)
 SALESFORCE_RESOURCE_QUERIES: dict[str, str] = {
     "accounts": (
         "SELECT Id, Name, Industry, Website, CreatedDate, LastModifiedDate FROM Account"

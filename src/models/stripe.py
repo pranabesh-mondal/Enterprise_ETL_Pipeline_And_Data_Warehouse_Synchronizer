@@ -1,5 +1,3 @@
-"""Pydantic models for Stripe API resources (Day 1-2, Week 1)."""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -37,7 +35,7 @@ class StripeCustomer(StripeTimestampMixin):
 
 class StripeCharge(StripeTimestampMixin):
     id: str
-    amount: int = Field(ge=0)  # in cents
+    amount: int = Field(ge=0)
     currency: str
     status: str
     customer: str | None = None
@@ -66,7 +64,6 @@ class StripeInvoice(StripeTimestampMixin):
         return value.lower()
 
 
-# resource name (Stripe API path) -> validating model
 STRIPE_RESOURCE_MODELS: dict[str, type[BaseSchema]] = {
     "customers": StripeCustomer,
     "charges": StripeCharge,

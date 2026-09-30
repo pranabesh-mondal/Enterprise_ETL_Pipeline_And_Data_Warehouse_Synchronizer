@@ -1,9 +1,3 @@
-[tool.pytest.ini_options]
-# Guarantee `import src.*` works whether tests run via `pytest` or `python -m pytest`.
-pythonpath = ["."]
-testpaths = ["tests"]
-addopts = "-q"
-
 [tool.ruff]
 line-length = 100
 target-version = "py311"

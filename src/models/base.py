@@ -1,10 +1,3 @@
-"""Base Pydantic schemas shared by all API data models.
-
-Day 1-2 (Week 1): data models defined with Pydantic v2. Every source
-model inherits `BaseSchema`; extraction results are wrapped in
-`ExtractedRecord` envelopes for the raw S3 landing zone.
-"""
-
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -27,8 +20,8 @@ class BaseSchema(BaseModel):
     """Common config for all source data models."""
 
     model_config = ConfigDict(
-        extra="ignore",          # ignore unknown API fields
-        populate_by_name=True,   # allow field-name or alias population
+        extra="ignore",
+        populate_by_name=True,
         str_strip_whitespace=True,
     )
 

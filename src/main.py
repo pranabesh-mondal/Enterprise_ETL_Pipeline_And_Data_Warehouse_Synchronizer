@@ -1,6 +1,4 @@
-"""Week 1-2 pipeline entrypoint: Extract -> validate -> land raw JSON ->
-transform into the unified schema.
-
+"""
 Usage:
     python -m src.main                          # extraction (all configured sources)
     python -m src.main --local                  # land to ./data/raw instead of S3
@@ -13,7 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
+from datetime import UTC, datetime
 
 from src.config.settings import get_settings
 from src.extract.base import BaseExtractor
@@ -110,6 +108,28 @@ def build_extractors(settings, sources: list[str]) -> list[BaseExtractor]:
     return extractors
 
 
+def _first_error_message(errors: list[dict]) -> str:
+    """Best-effort first quarantine message; never raises on odd shapes."""
+    try:
+        first = errors[0] if errors else {}
+        details = first.get("errors") if isinstance(first, dict) else None
+        if isinstance(details, list) and details:
+            msg = details[0].get("msg") if isinstance(details[0], dict) else None
+            if msg:
+                return str(msg)
+        reason = first.get("reason") if isinstance(first, dict) else None
+        return str(reason or first or "unknown validation error")
+    except Exception:
+        return "unknown validation error"
+
+
+def _ensure_aware(value: datetime | None) -> datetime | None:
+    """Treat naive datetimes as UTC so incremental cutoffs never drift."""
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value
+
+
 def run_extraction(
     extractor: BaseExtractor,
     lake: S3DataLake | LocalDataLake,
@@ -135,7 +155,7 @@ def run_extraction(
 
         try:
             result = extractor.extract(resource, since=since)
-        except Exception as exc:  # noqa: BLE001 - deliberate per-resource isolation
+        except Exception as exc:
             logger.exception(
                 "Extraction FAILED for %s/%s: %s",
                 extractor.source.value,
@@ -153,11 +173,12 @@ def run_extraction(
                 run_id=run_id,
             )
         if result.errors:
+            first_msg = _first_error_message(result.errors)
             logger.error(
                 "Quarantined %d invalid %s records (first: %s)",
                 result.error_count,
                 resource,
-                result.errors[0]["errors"][0].get("msg"),
+                first_msg,
             )
         summary[resource] = {
             "fetched": result.total_fetched,
@@ -170,15 +191,15 @@ def run_extraction(
 
 def run_extract_stage(args: argparse.Namespace, settings, run_id: str) -> None:
     """Extract every requested source/resource and land raw JSON."""
-    since = datetime.fromisoformat(args.since) if args.since else None
+    since = _ensure_aware(datetime.fromisoformat(args.since)) if args.since else None
     extractors = build_extractors(settings, args.sources)
     if not extractors:
         logger.error("No sources configured - check your .env credentials.")
         return
 
     if args.local or not settings.s3_configured:
-        lake: S3DataLake | LocalDataLake = LocalDataLake()
-        logger.info("Using LOCAL data lake at data/raw (dev mode).")
+        lake: S3DataLake | LocalDataLake = LocalDataLake(args.raw_root)
+        logger.info("Using LOCAL data lake at %s (dev mode).", args.raw_root)
     else:
         lake = S3DataLake(
             bucket=settings.aws_s3_bucket,

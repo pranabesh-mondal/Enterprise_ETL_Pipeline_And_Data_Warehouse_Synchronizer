@@ -1,10 +1,3 @@
-"""Declarative source -> unified schema mappings - Week 2, Day 4-6.
-
-Each `ResourceMapping` describes how one source resource's flat API fields
-become unified warehouse columns. Adding a new source/resource is a data
-change here, not a code change in the pipeline.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -15,6 +8,7 @@ from src.models.base import Source
 from src.models.unified import EntityType, RecordStatus
 from src.transform.clean import (
     clean_string,
+    is_missing,
     major_to_minor,
     minor_to_major,
     standardize_currency,
@@ -123,14 +117,17 @@ def map_record(
         row["amount_minor"] = major_to_minor(raw_amount, currency)
         row["amount"] = minor_to_major(row["amount_minor"], currency)
     else:
-        row["amount_minor"] = int(raw_amount) if raw_amount is not None else None
-        row["amount"] = minor_to_major(raw_amount, currency)
+        row["amount_minor"] = _coerce_minor_amount(raw_amount)
+        row["amount"] = minor_to_major(row["amount_minor"], currency)
 
     attributes: dict[str, Any] = {}
     for target, source_field in mapping.attribute_map.items():
-        value = clean_string(_pick(record, source_field))
-        if value is not None:
-            attributes[target] = value
+        raw_value = _pick(record, source_field)
+        if is_missing(raw_value):
+            continue
+        attributes[target] = (
+            clean_string(raw_value) if isinstance(raw_value, str) else raw_value
+        )
     if mapping.status_field:
         raw_status = clean_string(_pick(record, mapping.status_field))
         if raw_status is not None:
@@ -159,7 +156,7 @@ MAPPINGS: dict[tuple[Source, str], ResourceMapping] = {
         created_field="created",
         status_field="status",
         currency_field="currency",
-        amount_field="amount",  # Stripe amounts are minor units (cents)
+        amount_field="amount",
         field_map={"name": "description"},
         attribute_map={"customer": "customer", "description": "description"},
         status_map={
@@ -207,7 +204,7 @@ MAPPINGS: dict[tuple[Source, str], ResourceMapping] = {
         updated_field="LastModifiedDate",
         status_field="StageName",
         amount_field="Amount",
-        amount_is_major=True,  # Salesforce Amount is a major-unit currency value
+        amount_is_major=True,
         field_map={"name": "Name"},
         attribute_map={"close_date": "CloseDate", "stage_name": "StageName"},
         status_map={
@@ -222,6 +219,30 @@ MAPPINGS: dict[tuple[Source, str], ResourceMapping] = {
         title_case_fields=("name",),
     ),
 }
+
+
+def _coerce_minor_amount(raw_amount: Any) -> int | None:
+    """Coerce a minor-unit amount (Stripe cents) to a non-negative int.
+
+    Accepts ints, integral floats, and numeric strings; rejects bools,
+    fractional values, negatives, and garbage (returns None -> validated
+    downstream as missing, or rejected for transactions that require it).
+    """
+    if raw_amount is None or isinstance(raw_amount, bool):
+        return None
+    if isinstance(raw_amount, int):
+        return raw_amount if raw_amount >= 0 else None
+    if isinstance(raw_amount, float):
+        return int(raw_amount) if raw_amount.is_integer() and raw_amount >= 0 else None
+    if isinstance(raw_amount, str):
+        text = raw_amount.strip()
+        if not text:
+            return None
+        try:
+            return _coerce_minor_amount(float(text)) if "." in text else _coerce_minor_amount(int(text))
+        except ValueError:
+            return None
+    return None
 
 
 def get_mapping(source: Source, resource: str) -> ResourceMapping:

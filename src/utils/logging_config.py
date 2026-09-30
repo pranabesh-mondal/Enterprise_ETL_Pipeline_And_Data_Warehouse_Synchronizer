@@ -1,5 +1,3 @@
-"""Centralized structured logging for the ETL pipeline (robust error logging)."""
-
 from __future__ import annotations
 
 import logging

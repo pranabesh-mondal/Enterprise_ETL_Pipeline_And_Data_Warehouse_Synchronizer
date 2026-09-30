@@ -1,16 +1,3 @@
-"""Cleaning & standardization helpers - Week 2, Day 1-3.
-
-Handles the messy reality of third-party APIs:
-  * nulls, empty strings and "N/A"-style sentinels
-  * epoch-seconds / epoch-millis / ISO-8601 / date-only timestamps -> UTC
-  * currency casing + ISO-4217 zero-decimal currencies (JPY, KRW, ...)
-  * amounts expressed in minor units (cents) -> Decimal major units
-  * duplicate records
-
-The pure helpers below are engine-agnostic; `clean_frame` (Polars) and
-`clean_frame_pandas` (Pandas) apply them to whole DataFrames.
-"""
-
 from __future__ import annotations
 
 import math
@@ -25,7 +12,6 @@ NULL_TOKENS = frozenset({"", "null", "none", "nan", "n/a", "na", "-", "--"})
 CURRENCY_RE = re.compile(r"^[A-Za-z]{3}$")
 EPOCH_RE = re.compile(r"^(\d{10}|\d{13})(\.\d+)?$")
 
-# ISO-4217 currencies that have no minor unit (exponent 0).
 ZERO_DECIMAL_CURRENCIES = frozenset(
     {
         "BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "MGA",
@@ -127,7 +113,7 @@ def standardize_datetime(value: Any) -> datetime | None:
 
 def _epoch_to_datetime(epoch: float) -> datetime | None:
     """Epoch seconds, or milliseconds when the magnitude implies ms."""
-    if abs(epoch) > 1e11:  # 13-digit millis
+    if abs(epoch) > 1e11:
         epoch = epoch / 1000.0
     try:
         return datetime.fromtimestamp(epoch, tz=UTC)

@@ -1,10 +1,3 @@
-"""Stripe extractor with cursor-based pagination (Day 3-5, Week 1).
-
-Stripe list endpoints paginate with `starting_after` + `has_more`.
-Incremental pulls use the `created[gt]` filter against the last
-high-water mark.
-"""
-
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -23,7 +16,7 @@ logger = get_logger(__name__)
 class StripeExtractor(BaseExtractor):
     source = Source.STRIPE
     resource_models: dict[str, type[BaseSchema]] = STRIPE_RESOURCE_MODELS
-    MAX_PAGE_SIZE = 100  # Stripe's hard API limit
+    MAX_PAGE_SIZE = 100
 
     def __init__(
         self,
@@ -70,7 +63,6 @@ class StripeExtractor(BaseExtractor):
 
             if not body.get("has_more") or not data:
                 break
-            # Cursor: the id of the last record on this page.
             starting_after = data[-1]["id"]
 
         logger.info("Stripe '%s': fetched %d records across %d pages",

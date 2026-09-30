@@ -1,13 +1,3 @@
-"""SQLAlchemy warehouse table definitions - Week 3, Day 1-3.
-
-Single-table design (`unified_records`) keyed on the stable `unified_id`
-surrogate key (source:entity_type:source_id). One table keeps the upsert
-path identical for SQLite (local dev), PostgreSQL and Snowflake.
-
-`etl_watermarks` tracks the per-resource high-water mark so future
-extraction runs can pull incrementally.
-"""
-
 from __future__ import annotations
 
 from sqlalchemy import (

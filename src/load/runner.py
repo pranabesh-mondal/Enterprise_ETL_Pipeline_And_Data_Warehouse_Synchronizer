@@ -1,10 +1,3 @@
-"""Load stage runner - Week 3, Day 4-6.
-
-Reads unified JSON parts from the processed zone and upserts them into
-the warehouse. After each resource, the high-water mark (max created_at /
-updated_at) is stored so the next extract run can pull incrementally.
-"""
-
 from __future__ import annotations
 
 import json
@@ -37,12 +30,12 @@ def load_unified_records(path: str | Path) -> list[dict[str, Any]]:
 
 def infer_source_resource(path: Path) -> tuple[str, str]:
     """Infer (source, resource) from processed-zone partition path parts."""
-    source, resource = "unknown", path.parent.name
+    source, resource = "unknown", "unknown"
     for part in path.parts:
         if part.startswith("source="):
-            source = part.split("=", 1)[1]
+            source = part.split("=", 1)[1] or "unknown"
         if part.startswith("resource="):
-            resource = part.split("=", 1)[1]
+            resource = part.split("=", 1)[1] or "unknown"
     return source, resource
 
 
@@ -78,4 +71,3 @@ def run_load(out_root: str | Path = "data/processed",
     if not summary:
         logger.warning("No processed parts under %s - nothing to load.", out_root)
     return summary
-

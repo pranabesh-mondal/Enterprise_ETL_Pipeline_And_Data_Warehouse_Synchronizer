@@ -1,12 +1,3 @@
-"""Transform pipeline - Week 2, Day 4-6.
-
-raw payload -> clean/standardize -> map to unified schema -> Pydantic
-validate -> deduplicate -> unified records ready for the warehouse.
-
-Records that cannot be mapped or validated are rejected with a reason
-instead of failing the whole batch (same isolation principle as extraction).
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,7 +7,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from src.models.base import Source
-from src.models.unified import ENTITY_MODELS, UnifiedRecord
+from src.models.unified import ENTITY_MODELS, UNIFIED_COLUMNS, UnifiedRecord
 from src.transform.clean_frames import (
     build_dataframe,
     build_frame,
@@ -32,8 +23,8 @@ logger = get_logger(__name__)
 
 ENGINES = ("polars", "pandas")
 
-# Columns the engine-level cleaners normalize.
-STRING_COLUMNS = ("name", "email", "currency")
+STRING_COLUMNS = ("name", "email")
+CURRENCY_COLUMNS = ("currency",)
 DATETIME_COLUMNS = ("created_at", "updated_at", "ingested_at")
 NUMERIC_COLUMNS = ("amount_minor",)
 
@@ -58,9 +49,20 @@ class TransformResult:
         return len(self.rejected)
 
 
+ENVELOPE_MARKERS = frozenset({"source", "resource", "external_id", "extracted_at"})
+
+
 def _unwrap(raw: Any) -> Any:
-    """Accept either a Week-1 envelope ({"data": {...}}) or a bare payload."""
-    if isinstance(raw, dict) and "data" in raw and isinstance(raw["data"], dict):
+    """Accept either a Week-1 envelope or a bare payload.
+
+    Only unwraps when real envelope markers are present, so bare payloads
+    that happen to contain a dict-valued `data` key are left untouched.
+    """
+    if (
+        isinstance(raw, dict)
+        and isinstance(raw.get("data"), dict)
+        and bool(ENVELOPE_MARKERS & raw.keys())
+    ):
         return raw["data"]
     return raw
 
@@ -147,22 +149,23 @@ def _finalize_record(record: dict[str, Any]) -> dict[str, Any]:
 
     * drops null values (top-level and inside `attributes`) - SQL-friendly
     * renders datetimes as ISO-8601 with a 'T' separator
+    * orders keys per UNIFIED_COLUMNS so both engines emit identical shapes
     """
-    finalized: dict[str, Any] = {}
+    cleaned: dict[str, Any] = {}
     for key, value in record.items():
         if value is None:
             continue
         if isinstance(value, datetime):
-            finalized[key] = value.isoformat()
+            cleaned[key] = value.isoformat()
         elif isinstance(value, dict):
-            finalized[key] = {
+            cleaned[key] = {
                 nested_key: nested_value
                 for nested_key, nested_value in value.items()
                 if nested_value is not None
             }
         else:
-            finalized[key] = value
-    return finalized
+            cleaned[key] = value
+    return {key: cleaned[key] for key in UNIFIED_COLUMNS if key in cleaned}
 
 
 def _deduplicate(
@@ -177,6 +180,7 @@ def _deduplicate(
         frame = clean_frame_pandas(
             build_dataframe(rows),
             string_columns=STRING_COLUMNS,
+            currency_columns=CURRENCY_COLUMNS,
             datetime_columns=DATETIME_COLUMNS,
             numeric_columns=NUMERIC_COLUMNS,
         )
@@ -187,6 +191,7 @@ def _deduplicate(
         frame = clean_frame(
             build_frame(rows),
             string_columns=STRING_COLUMNS,
+            currency_columns=CURRENCY_COLUMNS,
             datetime_columns=DATETIME_COLUMNS,
             numeric_columns=NUMERIC_COLUMNS,
         )

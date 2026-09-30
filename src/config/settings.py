@@ -1,10 +1,3 @@
-"""Application settings loaded from environment variables / .env file.
-
-Day 1-2 (Week 1): Secure API key management via pydantic-settings.
-Secrets are never hard-coded; they are read from the environment or a
-gitignored `.env` file (see `.env.example`).
-"""
-
 from __future__ import annotations
 
 from functools import lru_cache
@@ -13,7 +6,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Typed application settings (validated by Pydantic)."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -63,5 +55,4 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Cached settings accessor (importable anywhere in the pipeline)."""
     return Settings()
